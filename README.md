@@ -108,15 +108,21 @@ Each sent message is stored in PostgreSQL, then broadcast to every open socket f
 
 1. Create a new Render Web Service from this repository.
 2. Set root directory to `backend`.
-3. Use Docker or these commands:
-   - Build command: `pip install -r requirements.txt`
-   - Start command: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+3. Use the included `render.yaml` or configure a Docker web service manually.
 4. Add environment variables:
-   - `DATABASE_URL`
-   - `SECRET_KEY`
+   - `DATABASE_URL=postgresql+asyncpg://postgres:REAL_PASSWORD@db.vopwfeciyteoqpplfbnr.supabase.co:5432/postgres`
+   - `SECRET_KEY=some-long-random-secret`
    - `ALGORITHM=HS256`
    - `ACCESS_TOKEN_EXPIRE_MINUTES=1440`
-   - `FRONTEND_ORIGIN=https://your-frontend-domain`
+   - `FRONTEND_ORIGIN=https://your-frontend-domain.vercel.app`
+   - `FRONTEND_VERIFY_URL=https://your-frontend-domain.vercel.app/verify-email`
+   - `ADMIN_REGISTRATION_CODE=preet`
+   - `SMTP_HOST=smtp.gmail.com`
+   - `SMTP_PORT=587`
+   - `SMTP_USERNAME=preet.rathee8571@gmail.com`
+   - `SMTP_PASSWORD=YOUR_GMAIL_APP_PASSWORD`
+   - `SMTP_FROM_EMAIL=preet.rathee8571@gmail.com`
+   - `SMTP_USE_TLS=true`
 
 For Render PostgreSQL, Neon, or Supabase, make sure the database URL uses SQLAlchemy async format:
 
@@ -130,8 +136,8 @@ postgresql+asyncpg://USER:PASSWORD@HOST:PORT/DATABASE
 2. Build command: `npm run build`.
 3. Publish directory: `dist`.
 4. Add environment variables:
-   - `VITE_API_URL=https://your-backend-domain`
-   - `VITE_WS_URL=wss://your-backend-domain`
+   - `VITE_API_URL=https://your-backend-service.onrender.com`
+   - `VITE_WS_URL=wss://your-backend-service.onrender.com`
 
 Use `wss://` for production WebSockets when the backend is served over HTTPS.
 
@@ -148,5 +154,6 @@ Use `wss://` for production WebSockets when the backend is served over HTTPS.
 - Logout is client-side: the JWT is removed from local storage.
 - Users must verify email before login.
 - Admin signup is blocked unless the correct `ADMIN_REGISTRATION_CODE` is supplied and no admin already exists.
+- Image uploads are currently stored on the backend filesystem. On Render, attach a persistent disk to `/app/uploads` if you want uploaded images to survive restarts and redeploys.
 - The WebSocket manager is in memory, which is fine for an MVP on one backend instance.
 - For multiple backend instances, use Redis Pub/Sub or a managed realtime service for fan-out.
