@@ -1,14 +1,16 @@
-import { ImagePlus, SendHorizontal, Smile } from "lucide-react";
+import { ImagePlus, Phone, SendHorizontal, Smile, Video } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import api, { API_URL, WS_URL } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useCall } from "../context/CallContext";
 import Avatar from "./Avatar";
 
 const QUICK_EMOJIS = ["😀", "😂", "❤️", "🔥", "👍", "🎉"];
 
 export default function ChatWindow({ conversationId, onMessage }) {
   const { token, user } = useAuth();
+  const { call, startCall } = useCall();
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [content, setContent] = useState("");
@@ -19,6 +21,7 @@ export default function ChatWindow({ conversationId, onMessage }) {
   const fileInputRef = useRef(null);
 
   const title = useMemo(() => conversation?.other_user?.username || "Select a chat", [conversation]);
+  const callLocked = call.status !== "idle" && call.conversationId !== conversationId;
 
   useEffect(() => {
     if (!conversationId) {
@@ -123,6 +126,28 @@ export default function ChatWindow({ conversationId, onMessage }) {
             <h2 className="truncate text-sm font-semibold text-ink">{title}</h2>
             <p className="text-xs text-stone-500">{connected ? "Online" : "Connecting..."}</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => startCall(conversationId, conversation?.other_user, "audio")}
+            disabled={!conversation || callLocked}
+            className="grid h-10 w-10 place-items-center rounded-full border border-stone-200 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Start voice call"
+            title="Start voice call"
+          >
+            <Phone size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => startCall(conversationId, conversation?.other_user, "video")}
+            disabled={!conversation || callLocked}
+            className="grid h-10 w-10 place-items-center rounded-full border border-stone-200 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Start video call"
+            title="Start video call"
+          >
+            <Video size={18} />
+          </button>
         </div>
       </header>
       <div className="flex-1 space-y-3 overflow-y-auto bg-mist/60 p-4">

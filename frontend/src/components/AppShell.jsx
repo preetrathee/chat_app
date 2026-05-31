@@ -1,6 +1,7 @@
 import { LogOut, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import CallOverlay from "./CallOverlay";
 import Avatar from "./Avatar";
 import { useAuth } from "../context/AuthContext";
 
@@ -9,6 +10,7 @@ export default function AppShell({ children }) {
 
   return (
     <main className="min-h-screen bg-mist">
+      <CallOverlay />
       <header className="sticky top-0 z-10 border-b border-black/10 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link to="/" className="text-xl font-bold tracking-normal text-ink">
