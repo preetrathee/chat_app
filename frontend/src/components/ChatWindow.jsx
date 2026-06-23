@@ -316,7 +316,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
 
   return (
     <section className="flex h-full min-h-0 flex-1 flex-col bg-white">
-      <header className="flex h-16 items-center justify-between border-b border-black/10 px-3 sm:px-4">
+      <header className="border-b border-black/10 px-3 py-2 sm:flex sm:h-16 sm:items-center sm:justify-between sm:px-4 sm:py-0">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -333,14 +333,14 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
             <p className="text-xs text-stone-500">{connected ? "Online" : "Connecting..."}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="mt-2 flex items-center justify-end gap-1 sm:mt-0 sm:gap-2">
           {selectionMode ? (
             <>
               <button
                 type="button"
                 onClick={handleDeleteSelectedMessages}
                 disabled={!selectedCount || deletingSelected}
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-rose-200 px-3 text-xs font-medium text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:px-4 sm:text-sm"
+                className="inline-flex h-9 min-w-0 items-center gap-2 rounded-full border border-rose-200 px-3 text-xs font-medium text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:px-4 sm:text-sm"
               >
                 <Trash2 size={16} />
                 {deletingSelected ? "Deleting..." : `Delete ${selectedCount}`}
@@ -360,7 +360,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
               type="button"
               onClick={toggleSelectionMode}
               disabled={!messages.some((message) => message.sender_id === user.id)}
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-stone-200 px-3 text-xs font-medium text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:px-4 sm:text-sm"
+              className="inline-flex h-9 min-w-0 items-center gap-2 rounded-full border border-stone-200 px-3 text-xs font-medium text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:px-4 sm:text-sm"
             >
               <Check size={16} />
               Select

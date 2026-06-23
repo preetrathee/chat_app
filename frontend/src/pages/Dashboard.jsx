@@ -107,63 +107,68 @@ export default function Dashboard() {
     });
   }
 
+  const sidebar = (
+    <aside className="min-h-0 overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
+      <section className="border-b border-black/10 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-teal">Home</p>
+            <h1 className="text-xl font-bold text-ink">Chats</h1>
+          </div>
+          <div className="flex gap-1 text-stone-500">
+            <Camera size={19} />
+            <Heart size={19} />
+            <MessageCircle size={19} />
+          </div>
+        </div>
+        <p className="mt-3 text-sm text-stone-500">
+          Signed in as <span className="font-semibold text-ink">{user?.username}</span>
+        </p>
+        {user?.is_admin ? (
+          <p className="mt-1 text-xs font-medium text-coral">Admin account</p>
+        ) : null}
+      </section>
+      <PeopleList
+        users={discoverUsers}
+        onSendRequest={sendRequest}
+        onAcceptRequest={acceptRequest}
+        onStartConversation={startConversation}
+      />
+      <RequestList
+        requests={requests}
+        currentUserId={user?.id}
+        onAcceptRequest={acceptRequest}
+      />
+      {error ? <p className="border-b border-black/10 px-4 py-3 text-sm text-red-600">{error}</p> : null}
+      <ConversationList
+        conversations={conversations}
+        activeId={activeId}
+        onSelect={setActiveId}
+      />
+    </aside>
+  );
+
+  const chatPanel = (
+    <div className="min-h-0 overflow-hidden rounded-lg border border-black/10 shadow-sm">
+      <ChatWindow
+        conversationId={activeId}
+        onMessage={handleRealtimeMessage}
+        onMessageDeleted={handleMessageDeleted}
+        onConversationDeleted={handleConversationDeleted}
+        onBack={() => setActiveId(null)}
+      />
+    </div>
+  );
+
   return (
     <AppShell>
-      <div className="mx-auto grid h-full max-w-6xl min-h-0 grid-cols-1 gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside
-          className={`min-h-0 overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm ${
-            activeId ? "lg:block hidden" : "block"
-          }`}
-        >
-          <section className="border-b border-black/10 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-teal">Home</p>
-                <h1 className="text-xl font-bold text-ink">Chats</h1>
-              </div>
-              <div className="flex gap-1 text-stone-500">
-                <Camera size={19} />
-                <Heart size={19} />
-                <MessageCircle size={19} />
-              </div>
-            </div>
-            <p className="mt-3 text-sm text-stone-500">
-              Signed in as <span className="font-semibold text-ink">{user?.username}</span>
-            </p>
-            {user?.is_admin ? (
-              <p className="mt-1 text-xs font-medium text-coral">Admin account</p>
-            ) : null}
-          </section>
-          <PeopleList
-            users={discoverUsers}
-            onSendRequest={sendRequest}
-            onAcceptRequest={acceptRequest}
-            onStartConversation={startConversation}
-          />
-          <RequestList
-            requests={requests}
-            currentUserId={user?.id}
-            onAcceptRequest={acceptRequest}
-          />
-          {error ? <p className="border-b border-black/10 px-4 py-3 text-sm text-red-600">{error}</p> : null}
-          <ConversationList
-            conversations={conversations}
-            activeId={activeId}
-            onSelect={setActiveId}
-          />
-        </aside>
-        <div
-          className={`min-h-0 overflow-hidden rounded-lg border border-black/10 shadow-sm ${
-            activeId ? "block" : "hidden lg:block"
-          }`}
-        >
-          <ChatWindow
-            conversationId={activeId}
-            onMessage={handleRealtimeMessage}
-            onMessageDeleted={handleMessageDeleted}
-            onConversationDeleted={handleConversationDeleted}
-            onBack={() => setActiveId(null)}
-          />
+      <div className="mx-auto h-full max-w-6xl min-h-0 px-3 py-3 sm:px-4 sm:py-4">
+        <div className="grid h-full min-h-0 grid-cols-1 gap-4 lg:hidden">
+          {activeId ? chatPanel : sidebar}
+        </div>
+        <div className="hidden h-full min-h-0 lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-4">
+          {sidebar}
+          {chatPanel}
         </div>
       </div>
     </AppShell>
