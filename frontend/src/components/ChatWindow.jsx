@@ -1,4 +1,4 @@
-import { Check, ImagePlus, Phone, SendHorizontal, Smile, Trash2, Video, X } from "lucide-react";
+import { ArrowLeft, Check, ImagePlus, Phone, SendHorizontal, Smile, Trash2, Video, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import api, { API_URL, WS_URL } from "../api/client";
@@ -30,7 +30,7 @@ function loadRecentEmojis() {
   }
 }
 
-export default function ChatWindow({ conversationId, onMessage, onMessageDeleted, onConversationDeleted }) {
+export default function ChatWindow({ conversationId, onMessage, onMessageDeleted, onConversationDeleted, onBack }) {
   const { token, user } = useAuth();
   const { call, startCall } = useCall();
   const [conversation, setConversation] = useState(null);
@@ -316,22 +316,31 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
 
   return (
     <section className="flex h-full min-h-0 flex-1 flex-col bg-white">
-      <header className="flex h-16 items-center justify-between border-b border-black/10 px-4">
+      <header className="flex h-16 items-center justify-between border-b border-black/10 px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-stone-200 text-stone-700 transition hover:bg-stone-100 lg:hidden"
+            aria-label="Back to chats"
+            title="Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
           <Avatar user={conversation?.other_user} />
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold text-ink">{title}</h2>
             <p className="text-xs text-stone-500">{connected ? "Online" : "Connecting..."}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {selectionMode ? (
             <>
               <button
                 type="button"
                 onClick={handleDeleteSelectedMessages}
                 disabled={!selectedCount || deletingSelected}
-                className="inline-flex h-10 items-center gap-2 rounded-full border border-rose-200 px-4 text-sm font-medium text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-9 items-center gap-2 rounded-full border border-rose-200 px-3 text-xs font-medium text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:px-4 sm:text-sm"
               >
                 <Trash2 size={16} />
                 {deletingSelected ? "Deleting..." : `Delete ${selectedCount}`}
@@ -339,7 +348,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
               <button
                 type="button"
                 onClick={toggleSelectionMode}
-                className="grid h-10 w-10 place-items-center rounded-full border border-stone-200 text-stone-600 transition hover:bg-stone-100"
+                className="grid h-9 w-9 place-items-center rounded-full border border-stone-200 text-stone-600 transition hover:bg-stone-100 sm:h-10 sm:w-10"
                 aria-label="Cancel selection"
                 title="Cancel selection"
               >
@@ -351,7 +360,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
               type="button"
               onClick={toggleSelectionMode}
               disabled={!messages.some((message) => message.sender_id === user.id)}
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-stone-200 px-4 text-sm font-medium text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-9 items-center gap-2 rounded-full border border-stone-200 px-3 text-xs font-medium text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:px-4 sm:text-sm"
             >
               <Check size={16} />
               Select
@@ -361,7 +370,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
             type="button"
             onClick={handleDeleteConversation}
             disabled={!conversation || deletingConversation || selectionMode}
-            className="grid h-10 w-10 place-items-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="grid h-9 w-9 place-items-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10"
             aria-label="Delete chat"
             title="Delete chat"
           >
@@ -371,7 +380,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
             type="button"
             onClick={() => startCall(conversationId, conversation?.other_user, "audio")}
             disabled={!conversation || callLocked}
-            className="grid h-10 w-10 place-items-center rounded-full border border-stone-200 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+            className="grid h-9 w-9 place-items-center rounded-full border border-stone-200 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10"
             aria-label="Start voice call"
             title="Start voice call"
           >
@@ -381,7 +390,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
             type="button"
             onClick={() => startCall(conversationId, conversation?.other_user, "video")}
             disabled={!conversation || callLocked}
-            className="grid h-10 w-10 place-items-center rounded-full border border-stone-200 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+            className="grid h-9 w-9 place-items-center rounded-full border border-stone-200 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10"
             aria-label="Start video call"
             title="Start video call"
           >
@@ -392,7 +401,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
       <div
         ref={messagesContainerRef}
         onScroll={handleMessagesScroll}
-        className="flex-1 overflow-y-auto bg-mist/60 p-4"
+        className="flex-1 overflow-y-auto bg-mist/60 p-3 sm:p-4"
       >
         {hasMoreMessages ? (
           <div className="mb-3 flex justify-center">
@@ -414,7 +423,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
               <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div
                   onClick={selectionMode && mine ? () => toggleMessageSelection(message.id) : undefined}
-                  className={`max-w-[78%] rounded-lg px-3 py-2 text-sm shadow-sm transition ${
+                  className={`max-w-[88%] sm:max-w-[78%] rounded-lg px-3 py-2 text-sm shadow-sm transition ${
                     mine ? "bg-teal text-white" : "bg-white text-ink"
                   } ${
                     selectionMode && mine ? "cursor-pointer ring-1 ring-transparent hover:ring-white/50" : ""
@@ -452,7 +461,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
         </div>
         <div ref={endRef} />
       </div>
-      <form onSubmit={sendMessage} className="relative flex items-center gap-2 border-t border-black/10 p-3">
+      <form onSubmit={sendMessage} className="relative flex items-center gap-2 border-t border-black/10 p-2 sm:p-3">
         <input
           ref={fileInputRef}
           type="file"
@@ -464,7 +473,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading || selectionMode}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-stone-300 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-stone-300 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:w-11"
           aria-label="Upload image"
           title="Upload image"
         >
@@ -474,7 +483,7 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
           <button
             type="button"
             onClick={() => setEmojiOpen((current) => !current)}
-            className="grid h-11 w-11 place-items-center rounded-md border border-stone-300 text-stone-700 transition hover:bg-stone-100"
+            className="grid h-10 w-10 place-items-center rounded-md border border-stone-300 text-stone-700 transition hover:bg-stone-100 sm:h-11 sm:w-11"
             aria-label="Open emoji picker"
             title="Emoji picker"
           >
@@ -541,12 +550,12 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
             selectionMode ? "Selection mode enabled" : uploading ? "Uploading image..." : "Message..."
           }
           disabled={selectionMode}
-          className="h-11 min-w-0 flex-1 rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-teal focus:ring-2 focus:ring-teal/20"
+          className="h-10 min-w-0 flex-1 rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-teal focus:ring-2 focus:ring-teal/20 sm:h-11"
         />
         <button
           type="submit"
           disabled={uploading || selectionMode}
-          className="grid h-11 w-11 place-items-center rounded-md bg-coral text-white transition hover:bg-coral/90"
+          className="grid h-10 w-10 place-items-center rounded-md bg-coral text-white transition hover:bg-coral/90 sm:h-11 sm:w-11"
           aria-label="Send message"
           title="Send"
         >

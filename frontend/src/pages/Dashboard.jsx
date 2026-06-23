@@ -109,8 +109,12 @@ export default function Dashboard() {
 
   return (
     <AppShell>
-      <div className="mx-auto grid h-full max-w-6xl min-h-0 gap-4 px-4 py-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="min-h-0 overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
+      <div className="mx-auto grid h-full max-w-6xl min-h-0 grid-cols-1 gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <aside
+          className={`min-h-0 overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm ${
+            activeId ? "lg:block hidden" : "block"
+          }`}
+        >
           <section className="border-b border-black/10 p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -148,12 +152,17 @@ export default function Dashboard() {
             onSelect={setActiveId}
           />
         </aside>
-        <div className="min-h-0 overflow-hidden rounded-lg border border-black/10 shadow-sm">
+        <div
+          className={`min-h-0 overflow-hidden rounded-lg border border-black/10 shadow-sm ${
+            activeId ? "block" : "hidden lg:block"
+          }`}
+        >
           <ChatWindow
             conversationId={activeId}
             onMessage={handleRealtimeMessage}
             onMessageDeleted={handleMessageDeleted}
             onConversationDeleted={handleConversationDeleted}
+            onBack={() => setActiveId(null)}
           />
         </div>
       </div>
