@@ -54,6 +54,22 @@ export default function Dashboard() {
     }
   }
 
+  async function startConversation(userId) {
+    setError("");
+    try {
+      const { data } = await api.post("/conversations", { user_id: userId });
+      setConversations((current) => {
+        if (current.some((conversation) => conversation.id === data.id)) {
+          return current;
+        }
+        return [data, ...current];
+      });
+      setActiveId(data.id);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not open conversation");
+    }
+  }
+
   function handleRealtimeMessage(message) {
     setConversations((current) =>
       current.map((conversation) =>
@@ -118,6 +134,7 @@ export default function Dashboard() {
             users={discoverUsers}
             onSendRequest={sendRequest}
             onAcceptRequest={acceptRequest}
+            onStartConversation={startConversation}
           />
           <RequestList
             requests={requests}

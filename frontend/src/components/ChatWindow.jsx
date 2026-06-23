@@ -234,6 +234,10 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
     if (!conversationId) {
       return;
     }
+    const confirmed = window.confirm("This will delete the complete chat and all messages. Do you want to continue?");
+    if (!confirmed) {
+      return;
+    }
     setDeletingConversation(true);
     try {
       await api.delete(`/conversations/${conversationId}`);

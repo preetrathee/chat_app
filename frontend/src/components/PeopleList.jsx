@@ -1,6 +1,6 @@
 import Avatar from "./Avatar";
 
-export default function PeopleList({ users, onSendRequest, onAcceptRequest }) {
+export default function PeopleList({ users, onSendRequest, onAcceptRequest, onStartConversation }) {
   return (
     <section className="border-b border-black/10 p-3">
       <div className="mb-3">
@@ -44,7 +44,13 @@ export default function PeopleList({ users, onSendRequest, onAcceptRequest }) {
               </button>
             ) : null}
             {user.connection_status === "accepted" ? (
-              <span className="text-xs font-medium text-teal">Connected</span>
+              <button
+                type="button"
+                onClick={() => onStartConversation(user.id)}
+                className="rounded-md bg-teal px-3 py-2 text-xs font-semibold text-white"
+              >
+                Message
+              </button>
             ) : null}
           </div>
         ))}
