@@ -10,7 +10,7 @@ from app.db.session import AsyncSessionLocal
 from app.models import Message, User
 from app.schemas.message import MessageCreate, MessageOut
 from app.services.connections import has_accepted_connection
-from app.services.conversations import load_conversation
+from app.services.conversations import get_conversation_participants
 
 router = APIRouter(tags=["websockets"])
 
@@ -76,18 +76,38 @@ async def broadcast_message(conversation_id: int, message: Message) -> None:
     )
 
 
+async def broadcast_message_deleted(conversation_id: int, message_id: int) -> None:
+    await manager.broadcast(
+        conversation_id,
+        {
+            "type": "message_deleted",
+            "message_id": message_id,
+            "conversation_id": conversation_id,
+        },
+    )
+
+
+async def broadcast_conversation_deleted(conversation_id: int) -> None:
+    await manager.broadcast(
+        conversation_id,
+        {
+            "type": "conversation_deleted",
+            "conversation_id": conversation_id,
+        },
+    )
+
+
 async def resolve_call_target(
     caller_id: int,
     conversation_id: int,
 ) -> tuple[User | None, int | None]:
     async with AsyncSessionLocal() as db:
         user = await db.get(User, caller_id)
-        conversation = await load_conversation(db, conversation_id, caller_id)
-        if not user or not conversation:
+        participants = await get_conversation_participants(db, conversation_id, caller_id)
+        if not user or not participants:
             return None, None
-        other_user_id = (
-            conversation.user_two_id if conversation.user_one_id == caller_id else conversation.user_one_id
-        )
+        user_one_id, user_two_id = participants
+        other_user_id = user_two_id if user_one_id == caller_id else user_one_id
         if not await has_accepted_connection(db, caller_id, other_user_id):
             return None, None
         return user, other_user_id
@@ -106,13 +126,12 @@ async def chat_websocket(
 
     async with AsyncSessionLocal() as db:
         user = await db.get(User, int(subject))
-        conversation = await load_conversation(db, conversation_id, int(subject))
-        if not user or not conversation:
+        participants = await get_conversation_participants(db, conversation_id, int(subject))
+        if not user or not participants:
             await websocket.close(code=1008)
             return
-        other_user_id = (
-            conversation.user_two_id if conversation.user_one_id == int(subject) else conversation.user_one_id
-        )
+        user_one_id, user_two_id = participants
+        other_user_id = user_two_id if user_one_id == int(subject) else user_one_id
         if not await has_accepted_connection(db, int(subject), other_user_id):
             await websocket.close(code=1008)
             return
@@ -129,15 +148,12 @@ async def chat_websocket(
                 continue
 
             async with AsyncSessionLocal() as db:
-                conversation = await load_conversation(db, conversation_id, int(subject))
-                if not conversation:
+                participants = await get_conversation_participants(db, conversation_id, int(subject))
+                if not participants:
                     await websocket.send_json({"type": "error", "detail": "Conversation not found"})
                     continue
-                other_user_id = (
-                    conversation.user_two_id
-                    if conversation.user_one_id == int(subject)
-                    else conversation.user_one_id
-                )
+                user_one_id, user_two_id = participants
+                other_user_id = user_two_id if user_one_id == int(subject) else user_one_id
                 if not await has_accepted_connection(db, int(subject), other_user_id):
                     await websocket.send_json(
                         {"type": "error", "detail": "Connection request must be accepted first"}

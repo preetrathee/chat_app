@@ -19,3 +19,12 @@ class MessageOut(BaseModel):
     sender: PublicUser
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MessagePage(BaseModel):
+    items: list[MessageOut]
+    has_more: bool
+
+
+class MessageBulkDelete(BaseModel):
+    message_ids: list[int] = Field(min_length=1)

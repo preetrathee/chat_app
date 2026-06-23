@@ -9,7 +9,7 @@ export default function AppShell({ children }) {
   const { user, logout } = useAuth();
 
   return (
-    <main className="min-h-screen bg-mist">
+    <main className="flex h-screen flex-col overflow-hidden bg-mist">
       <CallOverlay />
       <header className="sticky top-0 z-10 border-b border-black/10 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
@@ -43,7 +43,7 @@ export default function AppShell({ children }) {
           </div>
         </div>
       </header>
-      {children}
+      <div className="flex-1 overflow-hidden">{children}</div>
     </main>
   );
 }

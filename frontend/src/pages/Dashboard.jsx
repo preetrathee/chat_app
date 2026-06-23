@@ -64,10 +64,37 @@ export default function Dashboard() {
     );
   }
 
+  function handleMessageDeleted(conversationId, messageId) {
+    setConversations((current) =>
+      current.map((conversation) => {
+        if (conversation.id !== conversationId) {
+          return conversation;
+        }
+        if (conversation.last_message?.id === messageId) {
+          return { ...conversation, last_message: null };
+        }
+        return conversation;
+      }),
+    );
+  }
+
+  function handleConversationDeleted(conversationId) {
+    setConversations((current) => {
+      const nextConversations = current.filter((conversation) => conversation.id !== conversationId);
+      setActiveId((active) => {
+        if (active !== conversationId) {
+          return active;
+        }
+        return nextConversations[0]?.id || null;
+      });
+      return nextConversations;
+    });
+  }
+
   return (
     <AppShell>
-      <div className="mx-auto grid max-w-6xl gap-4 px-4 py-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
+      <div className="mx-auto grid h-full max-w-6xl min-h-0 gap-4 px-4 py-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="min-h-0 overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
           <section className="border-b border-black/10 p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -104,8 +131,13 @@ export default function Dashboard() {
             onSelect={setActiveId}
           />
         </aside>
-        <div className="overflow-hidden rounded-lg border border-black/10 shadow-sm">
-          <ChatWindow conversationId={activeId} onMessage={handleRealtimeMessage} />
+        <div className="min-h-0 overflow-hidden rounded-lg border border-black/10 shadow-sm">
+          <ChatWindow
+            conversationId={activeId}
+            onMessage={handleRealtimeMessage}
+            onMessageDeleted={handleMessageDeleted}
+            onConversationDeleted={handleConversationDeleted}
+          />
         </div>
       </div>
     </AppShell>

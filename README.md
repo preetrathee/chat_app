@@ -119,11 +119,10 @@ Each sent message is stored in PostgreSQL, then broadcast to every open socket f
    - `ADMIN_REGISTRATION_CODE=preet`
    - `SMTP_HOST=smtp.gmail.com`
    - `SMTP_PORT=587`
-   - `SMTP_USERNAME=preet.rathee8571@gmail.com`
-   - `SMTP_PASSWORD=YOUR_GMAIL_APP_PASSWORD`
-   - `SMTP_FROM_EMAIL=preet.rathee8571@gmail.com`
-   - `SMTP_USE_TLS=true`
-
+      - `SMTP_USERNAME=preet.rathee8571@gmail.com`
+      - `SMTP_PASSWORD=YOUR_GMAIL_APP_PASSWORD`
+      - `SMTP_FROM_EMAIL=preet.rathee8571@gmail.com`
+      - `SMTP_USE_TLS=true`
 For Render PostgreSQL, Neon, or Supabase, make sure the database URL uses SQLAlchemy async format:
 
 ```text
@@ -138,8 +137,16 @@ postgresql+asyncpg://USER:PASSWORD@HOST:PORT/DATABASE
 4. Add environment variables:
    - `VITE_API_URL=https://your-backend-service.onrender.com`
    - `VITE_WS_URL=wss://your-backend-service.onrender.com`
+   - `VITE_SUPABASE_URL=https://your-project.supabase.co`
+   - `VITE_SUPABASE_ANON_KEY=your-supabase-anon-key`
+   - `VITE_SUPABASE_STORAGE_BUCKET=uploads`
+   - `VITE_SUPABASE_STORAGE_FOLDER=chat_images`
+   - `VITE_TURN_URLS=turn:your-turn-host:3478`
+   - `VITE_TURN_USERNAME=your-turn-username`
+   - `VITE_TURN_CREDENTIAL=your-turn-password`
 
 Use `wss://` for production WebSockets when the backend is served over HTTPS.
+Add TURN credentials if you want reliable audio/video calls behind NATs and firewalls.
 
 ### Free PostgreSQL from Neon or Supabase
 
@@ -154,6 +161,6 @@ Use `wss://` for production WebSockets when the backend is served over HTTPS.
 - Logout is client-side: the JWT is removed from local storage.
 - Users must verify email before login.
 - Admin signup is blocked unless the correct `ADMIN_REGISTRATION_CODE` is supplied and no admin already exists.
-- Image uploads are currently stored on the backend filesystem. On Render, attach a persistent disk to `/app/uploads` if you want uploaded images to survive restarts and redeploys.
+- Image uploads are intended to go directly from the frontend to Supabase Storage. The backend stores only the resulting public URL in Postgres.
 - The WebSocket manager is in memory, which is fine for an MVP on one backend instance.
 - For multiple backend instances, use Redis Pub/Sub or a managed realtime service for fan-out.

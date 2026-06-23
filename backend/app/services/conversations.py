@@ -55,3 +55,30 @@ async def load_conversation(db: AsyncSession, conversation_id: int, user_id: int
             selectinload(Conversation.messages).selectinload(Message.sender),
         )
     )
+
+
+async def load_conversation_summary(
+    db: AsyncSession, conversation_id: int, user_id: int
+) -> Conversation | None:
+    return await db.scalar(
+        select(Conversation)
+        .where(conversation_access_filter(conversation_id, user_id))
+        .options(
+            selectinload(Conversation.user_one),
+            selectinload(Conversation.user_two),
+        )
+    )
+
+
+async def get_conversation_participants(
+    db: AsyncSession, conversation_id: int, user_id: int
+) -> tuple[int, int] | None:
+    conversation = await db.execute(
+        select(Conversation.user_one_id, Conversation.user_two_id).where(
+            conversation_access_filter(conversation_id, user_id)
+        )
+    )
+    row = conversation.one_or_none()
+    if not row:
+        return None
+    return row[0], row[1]

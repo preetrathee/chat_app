@@ -1,4 +1,4 @@
-import { ImagePlus, Phone, SendHorizontal, Smile, Video } from "lucide-react";
+import { Check, ImagePlus, Phone, SendHorizontal, Smile, Trash2, Video, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import api, { API_URL, WS_URL } from "../api/client";
@@ -13,6 +13,7 @@ const EMOJI_GROUPS = [
   ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "💯", "✨", "🎉", "🔥", "🌟"],
   ["🍕", "🍔", "🍟", "🍩", "☕", "🍎", "⚽", "🏏", "🎵", "🎮", "🚗", "✈️"],
 ];
+const PAGE_SIZE = 30;
 
 function loadRecentEmojis() {
   const fallback = ["😀", "❤️", "🔥", "👍", "🎉", "😂"];
@@ -29,7 +30,7 @@ function loadRecentEmojis() {
   }
 }
 
-export default function ChatWindow({ conversationId, onMessage }) {
+export default function ChatWindow({ conversationId, onMessage, onMessageDeleted, onConversationDeleted }) {
   const { token, user } = useAuth();
   const { call, startCall } = useCall();
   const [conversation, setConversation] = useState(null);
@@ -39,24 +40,47 @@ export default function ChatWindow({ conversationId, onMessage }) {
   const [uploading, setUploading] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [recentEmojis, setRecentEmojis] = useState(loadRecentEmojis);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [deletingConversation, setDeletingConversation] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState([]);
+  const [deletingSelected, setDeletingSelected] = useState(false);
   const socketRef = useRef(null);
   const endRef = useRef(null);
   const fileInputRef = useRef(null);
   const emojiPanelRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const pendingScrollRestoreRef = useRef(null);
+  const shouldStickToBottomRef = useRef(true);
 
   const title = useMemo(() => conversation?.other_user?.username || "Select a chat", [conversation]);
   const callLocked = call.status !== "idle" && call.conversationId !== conversationId;
 
   useEffect(() => {
     if (!conversationId) {
+      setConversation(null);
+      setMessages([]);
+      setHasMoreMessages(false);
+      setSelectionMode(false);
+      setSelectedMessageIds([]);
       return;
     }
     let ignore = false;
     async function loadConversation() {
-      const { data } = await api.get(`/conversations/${conversationId}`);
+      const [{ data: conversationData }, { data: messageData }] = await Promise.all([
+        api.get(`/conversations/${conversationId}`),
+        api.get(`/messages/conversation/${conversationId}`, {
+          params: { limit: PAGE_SIZE },
+        }),
+      ]);
       if (!ignore) {
-        setConversation(data);
-        setMessages(data.messages || []);
+        setConversation(conversationData);
+        setMessages(messageData.items || []);
+        setHasMoreMessages(messageData.has_more);
+        setSelectionMode(false);
+        setSelectedMessageIds([]);
+        shouldStickToBottomRef.current = true;
       }
     }
     loadConversation();
@@ -76,6 +100,11 @@ export default function ChatWindow({ conversationId, onMessage }) {
     socket.onmessage = (event) => {
       const payload = JSON.parse(event.data);
       if (payload.type === "message") {
+        const container = messagesContainerRef.current;
+        if (container) {
+          const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+          shouldStickToBottomRef.current = distanceFromBottom < 80;
+        }
         setMessages((current) => {
           if (current.some((message) => message.id === payload.message.id)) {
             return current;
@@ -84,6 +113,19 @@ export default function ChatWindow({ conversationId, onMessage }) {
         });
         onMessage?.(payload.message);
       }
+      if (payload.type === "message_deleted") {
+        setMessages((current) => current.filter((message) => message.id !== payload.message_id));
+        setSelectedMessageIds((current) => current.filter((messageId) => messageId !== payload.message_id));
+        onMessageDeleted?.(payload.conversation_id, payload.message_id);
+      }
+      if (payload.type === "conversation_deleted") {
+        setConversation(null);
+        setMessages([]);
+        setHasMoreMessages(false);
+        setSelectionMode(false);
+        setSelectedMessageIds([]);
+        onConversationDeleted?.(payload.conversation_id);
+      }
     };
     return () => {
       socket.close();
@@ -91,7 +133,19 @@ export default function ChatWindow({ conversationId, onMessage }) {
   }, [conversationId, token, onMessage]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (!container) {
+      return;
+    }
+    if (pendingScrollRestoreRef.current !== null) {
+      const previousHeight = pendingScrollRestoreRef.current;
+      pendingScrollRestoreRef.current = null;
+      container.scrollTop += container.scrollHeight - previousHeight;
+      return;
+    }
+    if (shouldStickToBottomRef.current) {
+      endRef.current?.scrollIntoView({ behavior: "auto" });
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -113,6 +167,95 @@ export default function ChatWindow({ conversationId, onMessage }) {
   useEffect(() => {
     localStorage.setItem(RECENT_EMOJIS_KEY, JSON.stringify(recentEmojis));
   }, [recentEmojis]);
+
+  async function loadOlderMessages() {
+    if (!conversationId || loadingOlder || !hasMoreMessages || !messages.length) {
+      return;
+    }
+    const container = messagesContainerRef.current;
+    if (container) {
+      pendingScrollRestoreRef.current = container.scrollHeight;
+    }
+    setLoadingOlder(true);
+    try {
+      const { data } = await api.get(`/messages/conversation/${conversationId}`, {
+        params: { before_id: messages[0].id, limit: PAGE_SIZE },
+      });
+      setMessages((current) => {
+        const seen = new Set(current.map((message) => message.id));
+        const older = (data.items || []).filter((message) => !seen.has(message.id));
+        return [...older, ...current];
+      });
+      setHasMoreMessages(data.has_more);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
+  function toggleSelectionMode() {
+    setSelectionMode((current) => {
+      if (current) {
+        setSelectedMessageIds([]);
+      }
+      return !current;
+    });
+  }
+
+  function toggleMessageSelection(messageId) {
+    setSelectedMessageIds((current) =>
+      current.includes(messageId)
+        ? current.filter((currentId) => currentId !== messageId)
+        : [...current, messageId],
+    );
+  }
+
+  async function handleDeleteSelectedMessages() {
+    if (!selectedMessageIds.length) {
+      return;
+    }
+    setDeletingSelected(true);
+    try {
+      await api.post("/messages/bulk-delete", {
+        message_ids: selectedMessageIds,
+      });
+      const selectedIds = new Set(selectedMessageIds);
+      setMessages((current) => current.filter((message) => !selectedIds.has(message.id)));
+      selectedMessageIds.forEach((messageId) => {
+        onMessageDeleted?.(conversationId, messageId);
+      });
+      setSelectedMessageIds([]);
+      setSelectionMode(false);
+    } finally {
+      setDeletingSelected(false);
+    }
+  }
+
+  async function handleDeleteConversation() {
+    if (!conversationId) {
+      return;
+    }
+    setDeletingConversation(true);
+    try {
+      await api.delete(`/conversations/${conversationId}`);
+      setConversation(null);
+      setMessages([]);
+      setHasMoreMessages(false);
+      setSelectionMode(false);
+      setSelectedMessageIds([]);
+      onConversationDeleted?.(conversationId);
+    } finally {
+      setDeletingConversation(false);
+    }
+  }
+
+  function handleMessagesScroll(event) {
+    const container = event.currentTarget;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom < 80;
+    if (container.scrollTop < 40 && hasMoreMessages && !loadingOlder) {
+      loadOlderMessages();
+    }
+  }
 
   function sendMessage(event) {
     event.preventDefault();
@@ -154,9 +297,11 @@ export default function ChatWindow({ conversationId, onMessage }) {
     return path.startsWith("http") ? path : new URL(path, `${API_URL}/`).toString();
   }
 
+  const selectedCount = selectedMessageIds.length;
+
   if (!conversationId) {
     return (
-      <section className="grid min-h-[70vh] flex-1 place-items-center bg-white">
+      <section className="grid h-full min-h-0 flex-1 place-items-center bg-white">
         <div className="max-w-sm px-6 text-center">
           <h2 className="text-2xl font-semibold text-ink">Your messages</h2>
           <p className="mt-2 text-sm text-stone-500">Search for someone or open a conversation to chat in realtime.</p>
@@ -166,7 +311,7 @@ export default function ChatWindow({ conversationId, onMessage }) {
   }
 
   return (
-    <section className="flex min-h-[70vh] flex-1 flex-col bg-white">
+    <section className="flex h-full min-h-0 flex-1 flex-col bg-white">
       <header className="flex h-16 items-center justify-between border-b border-black/10 px-4">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar user={conversation?.other_user} />
@@ -176,6 +321,48 @@ export default function ChatWindow({ conversationId, onMessage }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {selectionMode ? (
+            <>
+              <button
+                type="button"
+                onClick={handleDeleteSelectedMessages}
+                disabled={!selectedCount || deletingSelected}
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-rose-200 px-4 text-sm font-medium text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Trash2 size={16} />
+                {deletingSelected ? "Deleting..." : `Delete ${selectedCount}`}
+              </button>
+              <button
+                type="button"
+                onClick={toggleSelectionMode}
+                className="grid h-10 w-10 place-items-center rounded-full border border-stone-200 text-stone-600 transition hover:bg-stone-100"
+                aria-label="Cancel selection"
+                title="Cancel selection"
+              >
+                <X size={18} />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={toggleSelectionMode}
+              disabled={!messages.some((message) => message.sender_id === user.id)}
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-stone-200 px-4 text-sm font-medium text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Check size={16} />
+              Select
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleDeleteConversation}
+            disabled={!conversation || deletingConversation || selectionMode}
+            className="grid h-10 w-10 place-items-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Delete chat"
+            title="Delete chat"
+          >
+            <Trash2 size={18} />
+          </button>
           <button
             type="button"
             onClick={() => startCall(conversationId, conversation?.other_user, "audio")}
@@ -198,29 +385,67 @@ export default function ChatWindow({ conversationId, onMessage }) {
           </button>
         </div>
       </header>
-      <div className="flex-1 space-y-3 overflow-y-auto bg-mist/60 p-4">
-        {messages.map((message) => {
-          const mine = message.sender_id === user.id;
-          return (
-            <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[78%] rounded-lg px-3 py-2 text-sm shadow-sm ${
-                  mine ? "bg-teal text-white" : "bg-white text-ink"
-                }`}
-              >
-                {message.message_type === "image" ? (
-                  <img
-                    src={resolveImageUrl(message.content)}
-                    alt="Chat upload"
-                    className="max-h-72 rounded-md object-cover"
-                  />
-                ) : (
-                  <p className="break-words">{message.content}</p>
-                )}
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
+        className="flex-1 overflow-y-auto bg-mist/60 p-4"
+      >
+        {hasMoreMessages ? (
+          <div className="mb-3 flex justify-center">
+            <button
+              type="button"
+              onClick={loadOlderMessages}
+              disabled={loadingOlder}
+              className="rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-600 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loadingOlder ? "Loading..." : "Load older messages"}
+            </button>
+          </div>
+        ) : null}
+        <div className="space-y-3">
+          {messages.map((message) => {
+            const mine = message.sender_id === user.id;
+            const selected = selectedMessageIds.includes(message.id);
+            return (
+              <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                <div
+                  onClick={selectionMode && mine ? () => toggleMessageSelection(message.id) : undefined}
+                  className={`max-w-[78%] rounded-lg px-3 py-2 text-sm shadow-sm transition ${
+                    mine ? "bg-teal text-white" : "bg-white text-ink"
+                  } ${
+                    selectionMode && mine ? "cursor-pointer ring-1 ring-transparent hover:ring-white/50" : ""
+                  } ${
+                    selected ? (mine ? "ring-2 ring-white" : "ring-2 ring-teal") : ""
+                  }`}
+                >
+                  {selectionMode && mine ? (
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                        {selected ? "Selected" : "Tap to select"}
+                      </span>
+                      <span
+                        className={`grid h-5 w-5 place-items-center rounded-full border ${
+                          selected ? "border-white bg-white text-teal" : "border-white/60 text-white/60"
+                        }`}
+                      >
+                        <Check size={12} />
+                      </span>
+                    </div>
+                  ) : null}
+                  {message.message_type === "image" ? (
+                    <img
+                      src={resolveImageUrl(message.content)}
+                      alt="Chat upload"
+                      className="max-h-72 rounded-md object-cover"
+                    />
+                  ) : (
+                    <p className="break-words">{message.content}</p>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
         <div ref={endRef} />
       </div>
       <form onSubmit={sendMessage} className="relative flex items-center gap-2 border-t border-black/10 p-3">
@@ -234,7 +459,7 @@ export default function ChatWindow({ conversationId, onMessage }) {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
+          disabled={uploading || selectionMode}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-stone-300 text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
           aria-label="Upload image"
           title="Upload image"
@@ -308,12 +533,15 @@ export default function ChatWindow({ conversationId, onMessage }) {
         <input
           value={content}
           onChange={(event) => setContent(event.target.value)}
-          placeholder={uploading ? "Uploading image..." : "Message..."}
+          placeholder={
+            selectionMode ? "Selection mode enabled" : uploading ? "Uploading image..." : "Message..."
+          }
+          disabled={selectionMode}
           className="h-11 min-w-0 flex-1 rounded-md border border-stone-300 px-3 text-sm outline-none focus:border-teal focus:ring-2 focus:ring-teal/20"
         />
         <button
           type="submit"
-          disabled={uploading}
+          disabled={uploading || selectionMode}
           className="grid h-11 w-11 place-items-center rounded-md bg-coral text-white transition hover:bg-coral/90"
           aria-label="Send message"
           title="Send"
