@@ -15,7 +15,7 @@ from app.services.connections import has_accepted_connection
 from app.services.conversations import load_conversation
 
 router = APIRouter(prefix="/messages", tags=["messages"])
-UPLOAD_DIR = Path("uploads/chat_images")
+UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads" / "chat_images"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 

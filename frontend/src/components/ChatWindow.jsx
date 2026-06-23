@@ -151,7 +151,7 @@ export default function ChatWindow({ conversationId, onMessage }) {
   }
 
   function resolveImageUrl(path) {
-    return path.startsWith("http") ? path : `${API_URL}${path}`;
+    return path.startsWith("http") ? path : new URL(path, `${API_URL}/`).toString();
   }
 
   if (!conversationId) {
