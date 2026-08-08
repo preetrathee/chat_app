@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import api, { API_URL, WS_URL } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useCall } from "../context/CallContext";
+import { formatDateTime, formatFullDateTime } from "../lib/dates";
 import Avatar from "./Avatar";
 
 const RECENT_EMOJIS_KEY = "socialchat_recent_emojis";
@@ -419,6 +420,8 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
           {messages.map((message) => {
             const mine = message.sender_id === user.id;
             const selected = selectedMessageIds.includes(message.id);
+            const timestamp = formatDateTime(message.created_at);
+            const fullTimestamp = formatFullDateTime(message.created_at);
             return (
               <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div
@@ -454,6 +457,15 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
                   ) : (
                     <p className="break-words">{message.content}</p>
                   )}
+                  {timestamp ? (
+                    <time
+                      dateTime={message.created_at}
+                      title={fullTimestamp}
+                      className={`mt-1 block text-[11px] leading-4 ${mine ? "text-white/70" : "text-stone-500"}`}
+                    >
+                      {timestamp}
+                    </time>
+                  ) : null}
                 </div>
               </div>
             );

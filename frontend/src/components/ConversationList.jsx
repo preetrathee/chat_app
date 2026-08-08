@@ -1,4 +1,5 @@
 import Avatar from "./Avatar";
+import { formatDateTime, formatFullDateTime } from "../lib/dates";
 
 export default function ConversationList({ conversations, activeId, onSelect }) {
   if (!conversations.length) {
@@ -14,6 +15,13 @@ export default function ConversationList({ conversations, activeId, onSelect }) 
       <nav className="max-h-72 overflow-y-auto">
       {conversations.map((conversation) => {
         const active = conversation.id === activeId;
+        const lastActivityAt = conversation.last_message?.created_at || conversation.created_at;
+        const timestamp = formatDateTime(lastActivityAt);
+        const fullTimestamp = formatFullDateTime(lastActivityAt);
+        const lastMessageText =
+          conversation.last_message?.message_type === "image"
+            ? "Image"
+            : conversation.last_message?.content || "No messages yet";
         return (
           <button
             type="button"
@@ -25,9 +33,20 @@ export default function ConversationList({ conversations, activeId, onSelect }) 
           >
             <Avatar user={conversation.other_user} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{conversation.other_user.username}</p>
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <p className="truncate text-sm font-semibold">{conversation.other_user.username}</p>
+                {timestamp ? (
+                  <time
+                    dateTime={lastActivityAt}
+                    title={fullTimestamp}
+                    className={`shrink-0 text-[11px] leading-5 ${active ? "text-white/60" : "text-stone-400"}`}
+                  >
+                    {timestamp}
+                  </time>
+                ) : null}
+              </div>
               <p className={`truncate text-xs ${active ? "text-white/70" : "text-stone-500"}`}>
-                {conversation.last_message?.content || "No messages yet"}
+                {lastMessageText}
               </p>
             </div>
           </button>
