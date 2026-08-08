@@ -31,13 +31,19 @@ function loadRecentEmojis() {
   }
 }
 
-export default function ChatWindow({ conversationId, onMessage, onMessageDeleted, onConversationDeleted, onBack }) {
+export default function ChatWindow({
+  conversationId,
+  conversation: conversationSummary,
+  onMessage,
+  onMessageDeleted,
+  onConversationDeleted,
+  onBack,
+}) {
   const { token, user } = useAuth();
   const { call, startCall } = useCall();
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [content, setContent] = useState("");
-  const [connected, setConnected] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [recentEmojis, setRecentEmojis] = useState(loadRecentEmojis);
@@ -56,6 +62,8 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
   const shouldStickToBottomRef = useRef(true);
 
   const title = useMemo(() => conversation?.other_user?.username || "Select a chat", [conversation]);
+  const otherUser = conversationSummary?.other_user || conversation?.other_user;
+  const otherUserOnline = Boolean(otherUser?.is_online);
   const callLocked = call.status !== "idle" && call.conversationId !== conversationId;
 
   useEffect(() => {
@@ -91,13 +99,29 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
   }, [conversationId]);
 
   useEffect(() => {
+    if (!conversationSummary?.other_user) {
+      return;
+    }
+    setConversation((current) => {
+      if (!current || current.id !== conversationSummary.id) {
+        return current;
+      }
+      return {
+        ...current,
+        other_user: {
+          ...current.other_user,
+          is_online: conversationSummary.other_user.is_online,
+        },
+      };
+    });
+  }, [conversationSummary]);
+
+  useEffect(() => {
     if (!conversationId || !token) {
       return;
     }
     const socket = new WebSocket(`${WS_URL}/ws/chat/${conversationId}?token=${encodeURIComponent(token)}`);
     socketRef.current = socket;
-    socket.onopen = () => setConnected(true);
-    socket.onclose = () => setConnected(false);
     socket.onmessage = (event) => {
       const payload = JSON.parse(event.data);
       if (payload.type === "message") {
@@ -331,7 +355,12 @@ export default function ChatWindow({ conversationId, onMessage, onMessageDeleted
           <Avatar user={conversation?.other_user} />
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold text-ink">{title}</h2>
-            <p className="text-xs text-stone-500">{connected ? "Online" : "Connecting..."}</p>
+            <p className="flex items-center gap-1.5 text-xs text-stone-500">
+              <span
+                className={`h-2 w-2 rounded-full ${otherUserOnline ? "bg-emerald-500" : "bg-stone-300"}`}
+              />
+              {otherUserOnline ? "Online" : "Offline"}
+            </p>
           </div>
         </div>
         <div className="mt-2 flex items-center justify-end gap-1 sm:mt-0 sm:gap-2">

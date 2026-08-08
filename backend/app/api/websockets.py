@@ -19,14 +19,31 @@ class ConnectionManager:
     def __init__(self) -> None:
         self.active_connections: dict[int, list[WebSocket]] = defaultdict(list)
         self.user_connections: dict[int, list[WebSocket]] = defaultdict(list)
+        self.presence_connections: dict[int, list[WebSocket]] = defaultdict(list)
 
     async def connect(self, conversation_id: int, websocket: WebSocket) -> None:
         await websocket.accept()
         self.active_connections[conversation_id].append(websocket)
 
     async def connect_user(self, user_id: int, websocket: WebSocket) -> None:
+        was_online = self.is_user_online(user_id)
         await websocket.accept()
         self.user_connections[user_id].append(websocket)
+        if not was_online:
+            await self.broadcast_presence(user_id, True)
+
+    async def connect_presence(self, user_id: int, websocket: WebSocket) -> None:
+        was_online = self.is_user_online(user_id)
+        await websocket.accept()
+        self.presence_connections[user_id].append(websocket)
+        await websocket.send_json(
+            {
+                "type": "presence_snapshot",
+                "online_user_ids": sorted(self.online_user_ids()),
+            }
+        )
+        if not was_online:
+            await self.broadcast_presence(user_id, True)
 
     def disconnect(self, conversation_id: int, websocket: WebSocket) -> None:
         sockets = self.active_connections.get(conversation_id, [])
@@ -35,12 +52,29 @@ class ConnectionManager:
         if not sockets and conversation_id in self.active_connections:
             del self.active_connections[conversation_id]
 
-    def disconnect_user(self, user_id: int, websocket: WebSocket) -> None:
+    async def disconnect_user(self, user_id: int, websocket: WebSocket) -> None:
         sockets = self.user_connections.get(user_id, [])
         if websocket in sockets:
             sockets.remove(websocket)
         if not sockets and user_id in self.user_connections:
             del self.user_connections[user_id]
+        if not self.is_user_online(user_id):
+            await self.broadcast_presence(user_id, False)
+
+    async def disconnect_presence(self, user_id: int, websocket: WebSocket) -> None:
+        sockets = self.presence_connections.get(user_id, [])
+        if websocket in sockets:
+            sockets.remove(websocket)
+        if not sockets and user_id in self.presence_connections:
+            del self.presence_connections[user_id]
+        if not self.is_user_online(user_id):
+            await self.broadcast_presence(user_id, False)
+
+    def online_user_ids(self) -> set[int]:
+        return set(self.user_connections) | set(self.presence_connections)
+
+    def is_user_online(self, user_id: int) -> bool:
+        return user_id in self.online_user_ids()
 
     async def broadcast(self, conversation_id: int, payload: dict) -> None:
         disconnected: list[WebSocket] = []
@@ -60,7 +94,23 @@ class ConnectionManager:
             except Exception:
                 disconnected.append(websocket)
         for websocket in disconnected:
-            self.disconnect_user(user_id, websocket)
+            await self.disconnect_user(user_id, websocket)
+
+    async def broadcast_presence(self, user_id: int, is_online: bool) -> None:
+        payload = {
+            "type": "presence",
+            "user_id": user_id,
+            "is_online": is_online,
+        }
+        disconnected: list[tuple[int, WebSocket]] = []
+        for recipient_id, sockets in list(self.presence_connections.items()):
+            for websocket in list(sockets):
+                try:
+                    await websocket.send_json(payload)
+                except Exception:
+                    disconnected.append((recipient_id, websocket))
+        for recipient_id, websocket in disconnected:
+            await self.disconnect_presence(recipient_id, websocket)
 
 
 manager = ConnectionManager()
@@ -265,4 +315,29 @@ async def signaling_websocket(
 
             await websocket.send_json({"type": "error", "detail": "Unsupported signaling event"})
     except WebSocketDisconnect:
-        manager.disconnect_user(user_id, websocket)
+        await manager.disconnect_user(user_id, websocket)
+
+
+@router.websocket("/ws/presence")
+async def presence_websocket(
+    websocket: WebSocket,
+    token: str = Query(default=""),
+):
+    subject = decode_access_token(token)
+    if not subject:
+        await websocket.close(code=1008)
+        return
+
+    user_id = int(subject)
+    async with AsyncSessionLocal() as db:
+        user = await db.get(User, user_id)
+        if not user:
+            await websocket.close(code=1008)
+            return
+
+    await manager.connect_presence(user_id, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await manager.disconnect_presence(user_id, websocket)

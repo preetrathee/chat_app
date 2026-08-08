@@ -1,7 +1,7 @@
 import { Camera, Heart, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import api from "../api/client";
+import api, { WS_URL } from "../api/client";
 import AppShell from "../components/AppShell";
 import ChatWindow from "../components/ChatWindow";
 import ConversationList from "../components/ConversationList";
@@ -10,7 +10,7 @@ import RequestList from "../components/RequestList";
 import { useAuth } from "../context/AuthContext";
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { token, user } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [discoverUsers, setDiscoverUsers] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -33,6 +33,84 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboard();
   }, []);
+
+  useEffect(() => {
+    if (!token) {
+      return undefined;
+    }
+
+    function applyPresence(userId, isOnline) {
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.other_user?.id === userId
+            ? {
+                ...conversation,
+                other_user: {
+                  ...conversation.other_user,
+                  is_online: isOnline,
+                },
+              }
+            : conversation,
+        ),
+      );
+      setDiscoverUsers((current) =>
+        current.map((item) => (item.id === userId ? { ...item, is_online: isOnline } : item)),
+      );
+      setRequests((current) =>
+        current.map((request) => ({
+          ...request,
+          requester:
+            request.requester?.id === userId
+              ? { ...request.requester, is_online: isOnline }
+              : request.requester,
+          receiver:
+            request.receiver?.id === userId
+              ? { ...request.receiver, is_online: isOnline }
+              : request.receiver,
+        })),
+      );
+    }
+
+    const socket = new WebSocket(`${WS_URL}/ws/presence?token=${encodeURIComponent(token)}`);
+    socket.onmessage = (event) => {
+      const payload = JSON.parse(event.data);
+      if (payload.type === "presence_snapshot") {
+        const onlineIds = new Set(payload.online_user_ids || []);
+        setConversations((current) =>
+          current.map((conversation) => ({
+            ...conversation,
+            other_user: {
+              ...conversation.other_user,
+              is_online: onlineIds.has(conversation.other_user?.id),
+            },
+          })),
+        );
+        setDiscoverUsers((current) =>
+          current.map((item) => ({ ...item, is_online: onlineIds.has(item.id) })),
+        );
+        setRequests((current) =>
+          current.map((request) => ({
+            ...request,
+            requester: {
+              ...request.requester,
+              is_online: onlineIds.has(request.requester?.id),
+            },
+            receiver: {
+              ...request.receiver,
+              is_online: onlineIds.has(request.receiver?.id),
+            },
+          })),
+        );
+      }
+      if (payload.type === "presence") {
+        applyPresence(payload.user_id, payload.is_online);
+      }
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [token]);
 
   async function sendRequest(userId) {
     setError("");
@@ -152,6 +230,7 @@ export default function Dashboard() {
     <div className="min-h-0 overflow-hidden rounded-lg border border-black/10 shadow-sm">
       <ChatWindow
         conversationId={activeId}
+        conversation={conversations.find((item) => item.id === activeId) || null}
         onMessage={handleRealtimeMessage}
         onMessageDeleted={handleMessageDeleted}
         onConversationDeleted={handleConversationDeleted}

@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.api.messages import delete_image_file_if_present
-from app.api.websockets import broadcast_conversation_deleted
+from app.api.websockets import broadcast_conversation_deleted, manager
 from app.db.session import get_db
 from app.models import ConnectionRequest, Conversation, Message, User
 from app.schemas.conversation import ConversationCreate, ConversationDetail, ConversationOut
@@ -31,7 +31,14 @@ def serialize_conversation(conversation: Conversation, current_user: User) -> Co
         user_one_id=conversation.user_one_id,
         user_two_id=conversation.user_two_id,
         created_at=conversation.created_at,
-        other_user=PublicUser.model_validate(other),
+        other_user=PublicUser(
+            id=other.id,
+            username=other.username,
+            bio=other.bio,
+            avatar_url=other.avatar_url,
+            is_admin=other.is_admin,
+            is_online=manager.is_user_online(other.id),
+        ),
         last_message=getattr(conversation, "last_message", None),
     )
 

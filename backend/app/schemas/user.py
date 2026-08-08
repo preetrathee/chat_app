@@ -43,6 +43,7 @@ class PublicUser(BaseModel):
     bio: str
     avatar_url: str
     is_admin: bool
+    is_online: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

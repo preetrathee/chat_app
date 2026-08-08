@@ -34,7 +34,16 @@ export default function ConversationList({ conversations, activeId, onSelect }) 
             <Avatar user={conversation.other_user} />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-start justify-between gap-2">
-                <p className="truncate text-sm font-semibold">{conversation.other_user.username}</p>
+                <p className="flex min-w-0 items-center gap-2 truncate text-sm font-semibold">
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      conversation.other_user.is_online ? "bg-emerald-500" : "bg-stone-300"
+                    }`}
+                    aria-label={conversation.other_user.is_online ? "Online" : "Offline"}
+                    title={conversation.other_user.is_online ? "Online" : "Offline"}
+                  />
+                  <span className="truncate">{conversation.other_user.username}</span>
+                </p>
                 {timestamp ? (
                   <time
                     dateTime={lastActivityAt}

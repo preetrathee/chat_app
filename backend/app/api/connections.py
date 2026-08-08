@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
+from app.api.websockets import manager
 from app.db.session import get_db
 from app.models import ConnectionRequest, User
 from app.schemas.connection import ConnectionRequestCreate, ConnectionRequestOut, DiscoverUserOut
@@ -19,8 +20,19 @@ def serialize_request(request: ConnectionRequest) -> ConnectionRequestOut:
         id=request.id,
         status=request.status,
         created_at=request.created_at,
-        requester=PublicUser.model_validate(request.requester),
-        receiver=PublicUser.model_validate(request.receiver),
+        requester=serialize_public_user(request.requester),
+        receiver=serialize_public_user(request.receiver),
+    )
+
+
+def serialize_public_user(user: User) -> PublicUser:
+    return PublicUser(
+        id=user.id,
+        username=user.username,
+        bio=user.bio,
+        avatar_url=user.avatar_url,
+        is_admin=user.is_admin,
+        is_online=manager.is_user_online(user.id),
     )
 
 
@@ -50,6 +62,7 @@ async def discover_users(
                 bio=user.bio,
                 avatar_url=user.avatar_url,
                 is_admin=user.is_admin,
+                is_online=manager.is_user_online(user.id),
                 connection_status=status_value,
                 request_id=request_id,
             )
