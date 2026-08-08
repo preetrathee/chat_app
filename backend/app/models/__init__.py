@@ -2,5 +2,6 @@ from app.models.connection_request import ConnectionRequest
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.user import User
+from app.models.user_media import UserMedia
 
-__all__ = ["ConnectionRequest", "Conversation", "Message", "User"]
+__all__ = ["ConnectionRequest", "Conversation", "Message", "User", "UserMedia"]

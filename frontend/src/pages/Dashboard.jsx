@@ -7,6 +7,7 @@ import ChatWindow from "../components/ChatWindow";
 import ConversationList from "../components/ConversationList";
 import PeopleList from "../components/PeopleList";
 import RequestList from "../components/RequestList";
+import UserMediaPanel from "../components/UserMediaPanel";
 import { useAuth } from "../context/AuthContext";
 
 export default function Dashboard() {
@@ -14,19 +15,25 @@ export default function Dashboard() {
   const [conversations, setConversations] = useState([]);
   const [discoverUsers, setDiscoverUsers] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [media, setMedia] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [error, setError] = useState("");
+  const [mediaError, setMediaError] = useState("");
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [deletingMediaId, setDeletingMediaId] = useState(null);
 
   async function loadDashboard() {
-    const [conversationsResponse, discoverResponse, requestResponse] = await Promise.all([
+    const [conversationsResponse, discoverResponse, requestResponse, mediaResponse] = await Promise.all([
       api.get("/conversations"),
       api.get("/connections/discover"),
       api.get("/connections/requests"),
+      api.get("/media/me"),
     ]);
     const nextConversations = conversationsResponse.data;
     setConversations(nextConversations);
     setDiscoverUsers(discoverResponse.data);
     setRequests(requestResponse.data);
+    setMedia(mediaResponse.data);
     setActiveId((current) => current || nextConversations[0]?.id || null);
   }
 
@@ -148,6 +155,43 @@ export default function Dashboard() {
     }
   }
 
+  async function uploadMedia(file, caption) {
+    setMediaError("");
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("caption", caption);
+    setUploadingMedia(true);
+    try {
+      const { data } = await api.post("/media", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setMedia((current) => [data, ...current]);
+      return true;
+    } catch (err) {
+      setMediaError(err.response?.data?.detail || "Could not upload media");
+      return false;
+    } finally {
+      setUploadingMedia(false);
+    }
+  }
+
+  async function deleteMedia(mediaId) {
+    const confirmed = window.confirm("Delete this photo or video?");
+    if (!confirmed) {
+      return;
+    }
+    setMediaError("");
+    setDeletingMediaId(mediaId);
+    try {
+      await api.delete(`/media/${mediaId}`);
+      setMedia((current) => current.filter((item) => item.id !== mediaId));
+    } catch (err) {
+      setMediaError(err.response?.data?.detail || "Could not delete media");
+    } finally {
+      setDeletingMediaId(null);
+    }
+  }
+
   function handleRealtimeMessage(message) {
     setConversations((current) =>
       current.map((conversation) =>
@@ -186,7 +230,7 @@ export default function Dashboard() {
   }
 
   const sidebar = (
-    <aside className="min-h-0 overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
+    <aside className="min-h-0 overflow-y-auto rounded-lg border border-black/10 bg-white shadow-sm">
       <section className="border-b border-black/10 p-4">
         <div className="flex items-center justify-between">
           <div>
@@ -211,6 +255,14 @@ export default function Dashboard() {
         onSendRequest={sendRequest}
         onAcceptRequest={acceptRequest}
         onStartConversation={startConversation}
+      />
+      <UserMediaPanel
+        media={media}
+        uploading={uploadingMedia}
+        deletingId={deletingMediaId}
+        error={mediaError}
+        onUpload={uploadMedia}
+        onDelete={deleteMedia}
       />
       <RequestList
         requests={requests}

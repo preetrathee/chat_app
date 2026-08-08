@@ -90,6 +90,9 @@ Frontend runs on `http://localhost:5173`.
 - `GET /api/conversations/{conversation_id}`
 - `GET /api/messages/conversation/{conversation_id}`
 - `POST /api/messages/conversation/{conversation_id}`
+- `GET /api/media/me`
+- `POST /api/media`
+- `DELETE /api/media/{media_id}`
 - `WS /ws/chat/{conversation_id}?token=JWT_TOKEN`
 
 ## How Realtime Chat Works
@@ -161,6 +164,6 @@ Add TURN credentials if you want reliable audio/video calls behind NATs and fire
 - Logout is client-side: the JWT is removed from local storage.
 - Users must verify email before login.
 - Admin signup is blocked unless the correct `ADMIN_REGISTRATION_CODE` is supplied and no admin already exists.
-- Image uploads go through the backend to Supabase Storage. The backend stores the resulting public URL in Postgres.
+- Chat image uploads and dashboard media uploads go through the backend to Supabase Storage. The backend stores the resulting public URL in Postgres.
 - The WebSocket manager is in memory, which is fine for an MVP on one backend instance.
 - For multiple backend instances, use Redis Pub/Sub or a managed realtime service for fan-out.

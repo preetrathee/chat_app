@@ -34,16 +34,23 @@ class SupabaseStorage:
             headers["Content-Type"] = content_type
         return headers
 
-    def object_path(self, filename: str) -> str:
-        return f"{self.folder}/{filename}" if self.folder else filename
+    def object_path(self, filename: str, folder: str | None = None) -> str:
+        target_folder = self.folder if folder is None else folder.strip("/")
+        return f"{target_folder}/{filename}" if target_folder else filename
 
     def public_url(self, object_path: str) -> str:
         encoded_path = "/".join(quote(part) for part in object_path.split("/"))
         return f"{self.supabase_url}/storage/v1/object/public/{self.bucket}/{encoded_path}"
 
-    async def upload_image(self, image: UploadFile, filename: str, contents: bytes) -> str:
+    async def upload_file(
+        self,
+        file: UploadFile,
+        filename: str,
+        contents: bytes,
+        folder: str | None = None,
+    ) -> str:
         self._require_configured()
-        object_path = self.object_path(filename)
+        object_path = self.object_path(filename, folder)
         encoded_path = "/".join(quote(part) for part in object_path.split("/"))
         upload_url = f"{self.supabase_url}/storage/v1/object/{self.bucket}/{encoded_path}"
 
@@ -52,7 +59,7 @@ class SupabaseStorage:
                 upload_url,
                 content=contents,
                 headers={
-                    **self._headers(image.content_type or "application/octet-stream"),
+                    **self._headers(file.content_type or "application/octet-stream"),
                     "x-upsert": "false",
                 },
             )
@@ -63,6 +70,9 @@ class SupabaseStorage:
                 detail=f"Supabase image upload failed: {response.text}",
             )
         return self.public_url(object_path)
+
+    async def upload_image(self, image: UploadFile, filename: str, contents: bytes) -> str:
+        return await self.upload_file(image, filename, contents)
 
     async def delete_public_url(self, public_url: str) -> None:
         self._require_configured()

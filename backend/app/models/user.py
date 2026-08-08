@@ -22,3 +22,4 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     messages = relationship("Message", back_populates="sender", cascade="all, delete-orphan")
+    media = relationship("UserMedia", back_populates="user", cascade="all, delete-orphan")
