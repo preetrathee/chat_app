@@ -31,3 +31,11 @@ services:
         sync: false
       - key: SMTP_USE_TLS
         value: "true"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: uploads
+      - key: SUPABASE_STORAGE_FOLDER
+        value: chat_images

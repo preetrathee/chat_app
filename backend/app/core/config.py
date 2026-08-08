@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_from_email: str | None = None
     smtp_use_tls: bool = True
+    supabase_url: str | None = None
+    supabase_secret_key: str | None = None
+    supabase_service_role_key: str | None = None
+    supabase_storage_bucket: str = "uploads"
+    supabase_storage_folder: str = "chat_images"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

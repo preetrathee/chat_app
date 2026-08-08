@@ -149,7 +149,7 @@ async def delete_conversation(
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     for message in conversation.messages:
-        delete_image_file_if_present(message)
+        await delete_image_file_if_present(message)
 
     await db.delete(conversation)
     await db.commit()

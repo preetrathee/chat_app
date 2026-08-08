@@ -13,20 +13,21 @@ from app.models import Message, User
 from app.schemas.message import MessageBulkDelete, MessageCreate, MessageOut, MessagePage
 from app.services.connections import has_accepted_connection
 from app.services.conversations import get_conversation_participants
+from app.services.storage import local_upload_path_from_message_content, storage
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads" / "chat_images"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def delete_image_file_if_present(message: Message) -> None:
+async def delete_image_file_if_present(message: Message) -> None:
     if message.message_type != "image":
         return
-    file_name = Path(message.content).name
-    if not file_name:
+    if message.content.startswith("http"):
+        await storage.delete_public_url(message.content)
         return
-    target_path = UPLOAD_DIR / file_name
-    if target_path.exists():
+    target_path = local_upload_path_from_message_content(message.content, UPLOAD_DIR)
+    if target_path and target_path.exists():
         target_path.unlink()
 
 
@@ -111,16 +112,15 @@ async def upload_image_message(
 
     suffix = Path(image.filename or "upload.png").suffix.lower() or ".png"
     filename = f"{conversation_id}_{current_user.id}_{secrets.token_hex(8)}{suffix}"
-    target_path = UPLOAD_DIR / filename
     contents = await image.read()
     if len(contents) > 5 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image must be smaller than 5 MB")
-    target_path.write_bytes(contents)
+    image_url = await storage.upload_image(image, filename, contents)
 
     message = Message(
         conversation_id=conversation_id,
         sender_id=current_user.id,
-        content=f"/uploads/chat_images/{filename}",
+        content=image_url,
         message_type="image",
     )
     db.add(message)
@@ -152,7 +152,7 @@ async def delete_message(
     if not participants:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    delete_image_file_if_present(message)
+    await delete_image_file_if_present(message)
     conversation_id = message.conversation_id
     await db.delete(message)
     await db.commit()
@@ -185,7 +185,7 @@ async def bulk_delete_messages(
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     for message in messages:
-        delete_image_file_if_present(message)
+        await delete_image_file_if_present(message)
         await db.delete(message)
     await db.commit()
 
