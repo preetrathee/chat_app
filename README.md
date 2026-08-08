@@ -91,6 +91,8 @@ Frontend runs on `http://localhost:5173`.
 - `GET /api/messages/conversation/{conversation_id}`
 - `POST /api/messages/conversation/{conversation_id}`
 - `GET /api/media/me`
+- `GET /api/media/feed`
+- `GET /api/media/users/{user_id}`
 - `POST /api/media`
 - `DELETE /api/media/{media_id}`
 - `WS /ws/chat/{conversation_id}?token=JWT_TOKEN`

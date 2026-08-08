@@ -5,6 +5,7 @@ import api, { WS_URL } from "../api/client";
 import AppShell from "../components/AppShell";
 import ChatWindow from "../components/ChatWindow";
 import ConversationList from "../components/ConversationList";
+import FeedPanel from "../components/FeedPanel";
 import PeopleList from "../components/PeopleList";
 import RequestList from "../components/RequestList";
 import UserMediaPanel from "../components/UserMediaPanel";
@@ -16,30 +17,38 @@ export default function Dashboard() {
   const [discoverUsers, setDiscoverUsers] = useState([]);
   const [requests, setRequests] = useState([]);
   const [media, setMedia] = useState([]);
+  const [feedPosts, setFeedPosts] = useState([]);
+  const [activeView, setActiveView] = useState("messages");
   const [activeId, setActiveId] = useState(null);
   const [error, setError] = useState("");
   const [mediaError, setMediaError] = useState("");
+  const [feedError, setFeedError] = useState("");
+  const [loadingFeed, setLoadingFeed] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [deletingMediaId, setDeletingMediaId] = useState(null);
 
   async function loadDashboard() {
-    const [conversationsResponse, discoverResponse, requestResponse, mediaResponse] = await Promise.all([
+    const [conversationsResponse, discoverResponse, requestResponse, mediaResponse, feedResponse] = await Promise.all([
       api.get("/conversations"),
       api.get("/connections/discover"),
       api.get("/connections/requests"),
       api.get("/media/me"),
+      api.get("/media/feed"),
     ]);
     const nextConversations = conversationsResponse.data;
     setConversations(nextConversations);
     setDiscoverUsers(discoverResponse.data);
     setRequests(requestResponse.data);
     setMedia(mediaResponse.data);
+    setFeedPosts(feedResponse.data);
     setActiveId((current) => current || nextConversations[0]?.id || null);
   }
 
   useEffect(() => {
     loadDashboard();
   }, []);
+
+  const activeConversation = conversations.find((item) => item.id === activeId) || null;
 
   useEffect(() => {
     if (!token) {
@@ -166,6 +175,7 @@ export default function Dashboard() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setMedia((current) => [data, ...current]);
+      setFeedPosts((current) => [{ ...data, user }, ...current]);
       return true;
     } catch (err) {
       setMediaError(err.response?.data?.detail || "Could not upload media");
@@ -185,10 +195,24 @@ export default function Dashboard() {
     try {
       await api.delete(`/media/${mediaId}`);
       setMedia((current) => current.filter((item) => item.id !== mediaId));
+      setFeedPosts((current) => current.filter((item) => item.id !== mediaId));
     } catch (err) {
       setMediaError(err.response?.data?.detail || "Could not delete media");
     } finally {
       setDeletingMediaId(null);
+    }
+  }
+
+  async function refreshFeed() {
+    setFeedError("");
+    setLoadingFeed(true);
+    try {
+      const { data } = await api.get("/media/feed");
+      setFeedPosts(data);
+    } catch (err) {
+      setFeedError(err.response?.data?.detail || "Could not load feed");
+    } finally {
+      setLoadingFeed(false);
     }
   }
 
@@ -249,6 +273,26 @@ export default function Dashboard() {
         {user?.is_admin ? (
           <p className="mt-1 text-xs font-medium text-coral">Admin account</p>
         ) : null}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveView("messages")}
+            className={`h-10 rounded-md text-sm font-semibold transition ${
+              activeView === "messages" ? "bg-ink text-white" : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+            }`}
+          >
+            Messages
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveView("feed")}
+            className={`h-10 rounded-md text-sm font-semibold transition ${
+              activeView === "feed" ? "bg-ink text-white" : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+            }`}
+          >
+            Feed
+          </button>
+        </div>
       </section>
       <PeopleList
         users={discoverUsers}
@@ -273,7 +317,10 @@ export default function Dashboard() {
       <ConversationList
         conversations={conversations}
         activeId={activeId}
-        onSelect={setActiveId}
+        onSelect={(conversationId) => {
+          setActiveId(conversationId);
+          setActiveView("messages");
+        }}
       />
     </aside>
   );
@@ -282,7 +329,7 @@ export default function Dashboard() {
     <div className="min-h-0 overflow-hidden rounded-lg border border-black/10 shadow-sm">
       <ChatWindow
         conversationId={activeId}
-        conversation={conversations.find((item) => item.id === activeId) || null}
+        conversation={activeConversation}
         onMessage={handleRealtimeMessage}
         onMessageDeleted={handleMessageDeleted}
         onConversationDeleted={handleConversationDeleted}
@@ -291,15 +338,32 @@ export default function Dashboard() {
     </div>
   );
 
+  const feedPanel = (
+    <FeedPanel
+      posts={feedPosts}
+      currentUserId={user?.id}
+      loading={loadingFeed}
+      uploading={uploadingMedia}
+      deletingId={deletingMediaId}
+      error={feedError || mediaError}
+      onBack={() => setActiveView("messages")}
+      onRefresh={refreshFeed}
+      onUpload={uploadMedia}
+      onDelete={deleteMedia}
+    />
+  );
+
+  const mainPanel = activeView === "feed" ? feedPanel : chatPanel;
+
   return (
     <AppShell>
       <div className="mx-auto h-full max-w-6xl min-h-0 px-3 py-3 sm:px-4 sm:py-4">
         <div className="grid h-full min-h-0 grid-cols-1 gap-4 lg:hidden">
-          {activeId ? chatPanel : sidebar}
+          {activeView === "feed" ? feedPanel : activeId ? chatPanel : sidebar}
         </div>
         <div className="hidden h-full min-h-0 lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-4">
           {sidebar}
-          {chatPanel}
+          {mainPanel}
         </div>
       </div>
     </AppShell>
